@@ -2,7 +2,7 @@ import os
 import json
 
 import requests
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 
 DOCKER = os.environ["DOCKER_API_URL"]
 
@@ -43,3 +43,41 @@ def lister_conteneurs():
         resultat.append(fiche)
 
     return resultat
+
+
+@app.get(
+    "/containers/{id}",
+    summary="Consulter un conteneur géré",
+    responses={
+        404: {"description": "Conteneur inconnu ou non géré"},
+    },
+)
+def obtenir_conteneur(id: str):
+    reponse = requests.get(
+        DOCKER + "/containers/" + id + "/json",
+        timeout=5,
+    )
+
+    if reponse.status_code == 404:
+        raise HTTPException(
+            status_code=404,
+            detail="Conteneur introuvable",
+        )
+
+    reponse.raise_for_status()
+    conteneur = reponse.json()
+
+    labels = conteneur["Config"]["Labels"] or {}
+
+    if labels.get("adminapi.managed") != "true":
+        raise HTTPException(
+            status_code=404,
+            detail="Conteneur introuvable",
+        )
+
+    return {
+        "id": conteneur["Id"],
+        "name": conteneur["Name"].lstrip("/"),
+        "image": conteneur["Config"]["Image"],
+        "state": conteneur["State"]["Status"],
+    }
