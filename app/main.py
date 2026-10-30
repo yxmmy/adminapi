@@ -1,12 +1,19 @@
 import os
 import json
+from typing import Literal
 
 import requests
 from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel, Field
 
 DOCKER = os.environ["DOCKER_API_URL"]
 
 app = FastAPI()
+
+
+class CreationConteneur(BaseModel):
+    name: str = Field(pattern=r"^[a-z][a-z0-9-]{1,30}$")
+    image: Literal["nginx:alpine", "redis:alpine", "httpd:alpine"]
 
 
 @app.get("/health", summary="Vérifier que l’API fonctionne")
