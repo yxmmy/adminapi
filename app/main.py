@@ -3,7 +3,7 @@ import json
 from typing import Literal
 
 import requests
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Response
 from pydantic import BaseModel, Field
 
 DOCKER = os.environ["DOCKER_API_URL"]
@@ -197,3 +197,34 @@ def demarrer_conteneur(id: str):
     demarrage.raise_for_status()
 
     return obtenir_conteneur(id_conteneur)
+
+
+@app.delete(
+    "/containers/{id}",
+    status_code=204,
+    response_class=Response,
+    summary="Supprimer un conteneur géré",
+    responses={
+        404: {"description": "Conteneur inconnu ou non géré"},
+    },
+)
+def supprimer_conteneur(id: str):
+    # Vérifier le label avant toute suppression.
+    conteneur = obtenir_conteneur(id)
+    id_conteneur = conteneur["id"]
+
+    suppression = requests.delete(
+        DOCKER + "/containers/" + id_conteneur,
+        params={"force": "true"},
+        timeout=15,
+    )
+
+    if suppression.status_code == 404:
+        raise HTTPException(
+            status_code=404,
+            detail="Conteneur introuvable",
+        )
+
+    suppression.raise_for_status()
+
+    return Response(status_code=204)
