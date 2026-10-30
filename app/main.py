@@ -128,3 +128,39 @@ def creer_conteneur(donnees: CreationConteneur):
     demarrage.raise_for_status()
 
     return obtenir_conteneur(id_conteneur)
+
+
+@app.post(
+    "/containers/{id}/stop",
+    summary="Arrêter un conteneur géré",
+    responses={
+        404: {"description": "Conteneur inconnu ou non géré"},
+        409: {"description": "Conteneur déjà arrêté"},
+    },
+)
+def arreter_conteneur(id: str):
+    # Vérifier l’existence et le label avant toute action.
+    conteneur = obtenir_conteneur(id)
+    id_conteneur = conteneur["id"]
+
+    arret = requests.post(
+        DOCKER + "/containers/" + id_conteneur + "/stop",
+        params={"t": 5},
+        timeout=15,
+    )
+
+    if arret.status_code == 404:
+        raise HTTPException(
+            status_code=404,
+            detail="Conteneur introuvable",
+        )
+
+    if arret.status_code == 304:
+        raise HTTPException(
+            status_code=409,
+            detail="Le conteneur est déjà arrêté",
+        )
+
+    arret.raise_for_status()
+
+    return obtenir_conteneur(id_conteneur)
