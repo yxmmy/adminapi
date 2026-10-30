@@ -88,3 +88,43 @@ def obtenir_conteneur(id: str):
         "image": conteneur["Config"]["Image"],
         "state": conteneur["State"]["Status"],
     }
+
+
+@app.post(
+    "/containers",
+    status_code=201,
+    summary="Créer et démarrer un conteneur géré",
+    responses={
+        409: {"description": "Nom de conteneur déjà utilisé"},
+        422: {"description": "Données de création invalides"},
+    },
+)
+def creer_conteneur(donnees: CreationConteneur):
+    creation = requests.post(
+        DOCKER + "/containers/create",
+        params={"name": donnees.name},
+        json={
+            "Image": donnees.image,
+            "Labels": {
+                "adminapi.managed": "true",
+            },
+        },
+        timeout=10,
+    )
+
+    if creation.status_code == 409:
+        raise HTTPException(
+            status_code=409,
+            detail="Ce nom de conteneur est déjà utilisé",
+        )
+
+    creation.raise_for_status()
+    id_conteneur = creation.json()["Id"]
+
+    demarrage = requests.post(
+        DOCKER + "/containers/" + id_conteneur + "/start",
+        timeout=10,
+    )
+    demarrage.raise_for_status()
+
+    return obtenir_conteneur(id_conteneur)
